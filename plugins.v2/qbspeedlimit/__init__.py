@@ -45,8 +45,9 @@ class QbSpeedLimit(_PluginBase):
     _sites = None
     _siteoper = None
     _qb = None
-    _enabled: bool = False
-    _notify: bool = False
+    _enabled = False
+    _onlyonce = False
+    _notify = False
     _pause_cron = None
     _resume_cron = None
     _only_pause_once = False
@@ -77,18 +78,23 @@ class QbSpeedLimit(_PluginBase):
         
         # 读取配置
         if config:
-            self._enabled = config.get("enabled", True)
+            self._enabled = config.get("enabled", False)
+            self._onlyonce = config.get("onlyonce")
             self._notify = config.get("notify", False)
             self._upload_limit = config.get("upload_limit", 100)
+            self._cron = config.get("cron", None)
         else:
-            self._enabled = True
+            self._enabled = False
             self._notify = False
+            self._onlyonce = False
             self._upload_limit = 100
-            
-        # 初始化下载器服务
-        if self._enabled:
-            self._qb = self.downloader_helper.get_services()
-            
+            self.cron = None
+
+        if self._onlyonce:
+            self._onlyonce = False
+            # 立即执行一次限速规则
+            self.apply_speed_limit_by_tracker()
+            logger.info("QB智能限速插件已执行一次限速规则")            
         logger.info("QB智能限速插件已初始化")
 
     def get_state(self) -> bool:
@@ -155,6 +161,19 @@ class QbSpeedLimit(_PluginBase):
                                     {
                                         "component": "VSwitch",
                                         "props": {
+                                            "model": "onlyonce",
+                                            "label": "立即运行一次"
+                                        },
+                                    }
+                                ],
+                            },
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VSwitch",
+                                        "props": {
                                             "model": "notify",
                                             "label": "发送通知",
                                         },
@@ -177,6 +196,20 @@ class QbSpeedLimit(_PluginBase):
                                             "label": "上传限速 KB/s (仅对匹配tracker生效)",
                                             "placeholder": "KB/s",
                                         },
+                                    }
+                                ],
+                            },
+                            { 
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                'content': [
+                                    {
+                                        'component': 'VTextField',
+                                        'props': {
+                                            'model': 'cron',
+                                            'label': '监测周期',
+                                            'placeholder': '5位cron表达式'
+                                        }
                                     }
                                 ],
                             },
@@ -205,8 +238,10 @@ class QbSpeedLimit(_PluginBase):
             }
         ], {
             "enabled": True,
+            "onlyonce": False,
             "notify": False,
             "upload_limit": 100,
+            "cron": "",
         }
 
     def get_page(self) -> List[dict]:
@@ -225,7 +260,7 @@ class QbSpeedLimit(_PluginBase):
             {
                 "id": "QbSpeedLimitByTracker",
                 "name": "QB按Tracker限速",
-                "trigger": CronTrigger.from_crontab("*/5 * * * *"),
+                "trigger": CronTrigger.from_crontab("self._cron"),
                 "func": self.apply_speed_limit_by_tracker,
                 "kwargs": {},
             }
@@ -370,10 +405,7 @@ class QbSpeedLimit(_PluginBase):
         if not self._qb:
             logger.error("未获取到qbittorrent服务实例")
             return
-        # 计时
-        start_time = time.time()
-        logger.debug(f"下载器 {service_name} 的种子数量: {len(all_torrents)}")
-        tracker_matched_count = 0
+
         for service_name, service in self._qb.items():
             downloader = service.instance
             # 跳过非qbittorrent下载器
@@ -382,6 +414,10 @@ class QbSpeedLimit(_PluginBase):
                 continue
                 
             all_torrents, error = downloader.get_torrents()
+            # 计时
+            start_time = time.time()
+            logger.debug(f"下载器 {service_name} 的种子数量: {len(all_torrents)}")
+            tracker_matched_count = 0
             if error:
                 logger.error(f"获取下载器 {service_name} 的种子失败: {error}")
                 continue
@@ -428,10 +464,8 @@ class QbSpeedLimit(_PluginBase):
                                 logger.error(f"设置种子 {torrent.get('name')} 上传限速失败: {str(e)}")
                     except Exception as e:
                         logger.error(f"处理种子 {torrent.get('name')} 时出错: {str(e)}")
-        
+            stop_time = time.time()
+            elapsed_time = stop_time - start_time
+            logger.debug(f"限速规则执行完成，耗时 {elapsed_time:.2f} 秒")
         if tracker_matched_count > 0:
             logger.info(f"本次共设置了 {tracker_matched_count} 个种子的上传限速为 {self._upload_limit} KB/s")
-        
-        stop_time = time.time()
-        elapsed_time = stop_time - start_time
-        logger.debug(f"限速规则执行完成，耗时 {elapsed_time:.2f} 秒")
