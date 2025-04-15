@@ -394,37 +394,38 @@ class QbSpeedLimit(_PluginBase):
                 if "www.hdkyl.in" in tracker:
                     try:
                         torrent_hash = torrent.get("hash")
-                        # 获取当前限速值
+                        # 直接使用QB API设置单个种子的上传限速
                         current_limit = 0
+                        
                         try:
-                            # 部分qBittorrent客户端API可能不同
-                            if hasattr(downloader, 'get_torrent_limits'):
-                                _, current_limit = downloader.get_torrent_limits(torrent_hash)
-                            elif hasattr(downloader, 'get_torrent_upload_limit'):
-                                current_limit = downloader.get_torrent_upload_limit(torrent_hash)
-                        except:
-                            pass
+                            # 尝试获取当前种子的上传限速值
+                            # qBittorrent API: torrent_upload_limit(torrent_hash)
+                            if hasattr(downloader.qbc, 'torrents_upload_limit'):
+                                current_limits = downloader.qbc.torrents_upload_limit(torrent_hashes=torrent_hash)
+                                if isinstance(current_limits, dict) and torrent_hash in current_limits:
+                                    current_limit = current_limits.get(torrent_hash)
+                        except Exception as e:
+                            logger.debug(f"获取种子 {torrent.get('name')} 当前上传限速失败: {str(e)}")
                             
                         # 只有当前限速与设定不同时才设置
                         if current_limit != upload_limit_bytes:
-                            # 设置上传限速
-                            if hasattr(downloader, 'set_torrent_limits'):
-                                downloader.set_torrent_limits(torrent_hash, up_limit=upload_limit_bytes)
-                            elif hasattr(downloader, 'set_torrent_upload_limit'):
-                                downloader.set_torrent_upload_limit(torrent_hash, upload_limit_bytes)
+                            # qBittorrent API: torrents_set_upload_limit(torrent_hashes, limit)
+                            try:
+                                downloader.qbc.torrents_set_upload_limit(torrent_hashes=torrent_hash, limit=upload_limit_bytes)
+                                logger.info(f"已为种子 {torrent.get('name')} ({torrent_hash}) 设置上传限速 {self._upload_limit} KB/s")
+                                tracker_matched_count += 1
                                 
-                            logger.info(f"已为种子 {torrent.get('name')} ({torrent_hash}) 设置上传限速 {self._upload_limit} KB/s")
-                            tracker_matched_count += 1
-                            
-                            # 发送通知
-                            if self._notify:
-                                self.post_message(
-                                    mtype=NotificationType.SiteMessage,
-                                    title=f"【QB智能限速】",
-                                    text=f"已为种子 {torrent.get('name')} 设置上传限速 {self._upload_limit} KB/s"
-                                )
+                                # 发送通知
+                                if self._notify:
+                                    self.post_message(
+                                        mtype=NotificationType.SiteMessage,
+                                        title=f"【QB智能限速】",
+                                        text=f"已为种子 {torrent.get('name')} 设置上传限速 {self._upload_limit} KB/s"
+                                    )
+                            except Exception as e:
+                                logger.error(f"设置种子 {torrent.get('name')} 上传限速失败: {str(e)}")
                     except Exception as e:
-                        logger.error(f"设置种子 {torrent.get('name')} 上传限速失败: {str(e)}")
+                        logger.error(f"处理种子 {torrent.get('name')} 时出错: {str(e)}")
         
         if tracker_matched_count > 0:
             logger.info(f"本次共设置了 {tracker_matched_count} 个种子的上传限速为 {self._upload_limit} KB/s")
