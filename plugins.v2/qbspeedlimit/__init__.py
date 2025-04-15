@@ -69,10 +69,26 @@ class QbSpeedLimit(_PluginBase):
         生效配置信息
         :param config: 配置信息字典
         """
-        self._qb = None
-        self._enabled = True if not config else config.get("enabled", True)
-        self._notify = False if not config else config.get("notify", False)
-        # 可扩展更多配置项
+        self._sites = SitesHelper()
+        self._siteoper = SiteOper()
+        self.downloader_helper = DownloaderHelper()
+        # 停止现有任务
+        self.stop_service()
+        
+        # 读取配置
+        if config:
+            self._enabled = config.get("enabled", True)
+            self._notify = config.get("notify", False)
+            self._upload_limit = config.get("upload_limit", 100)
+        else:
+            self._enabled = True
+            self._notify = False
+            self._upload_limit = 100
+            
+        # 初始化下载器服务
+        if self._enabled:
+            self._qb = self.downloader_helper.get_services()
+            
         logger.info("QB智能限速插件已初始化")
 
     def get_state(self) -> bool:
@@ -110,10 +126,88 @@ class QbSpeedLimit(_PluginBase):
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
-        拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
-        插件配置页面使用Vuetify组件拼装，参考：https://vuetifyjs.com/
+        拼装插件配置页面，参考qbcommand插件风格
         """
-        pass
+        return [
+            {
+                "component": "VForm",
+                "content": [
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VSwitch",
+                                        "props": {
+                                            "model": "enabled",
+                                            "label": "启用插件",
+                                        },
+                                    }
+                                ],
+                            },
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VSwitch",
+                                        "props": {
+                                            "model": "notify",
+                                            "label": "发送通知",
+                                        },
+                                    }
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12, "md": 6},
+                                "content": [
+                                    {
+                                        "component": "VTextField",
+                                        "props": {
+                                            "model": "upload_limit",
+                                            "label": "上传限速 KB/s (仅对匹配tracker生效)",
+                                            "placeholder": "KB/s",
+                                        },
+                                    }
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "component": "VRow",
+                        "content": [
+                            {
+                                "component": "VCol",
+                                "props": {"cols": 12},
+                                "content": [
+                                    {
+                                        "component": "VAlert",
+                                        "props": {
+                                            "type": "info",
+                                            "variant": "tonal",
+                                            "text": "本插件会定时遍历所有QB种子，若tracker包含www.hdkyl.in则自动限速。后续可扩展更多规则。",
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                ],
+            }
+        ], {
+            "enabled": True,
+            "notify": False,
+            "upload_limit": 100,
+        }
 
     def get_page(self) -> List[dict]:
         """
@@ -259,31 +353,78 @@ class QbSpeedLimit(_PluginBase):
         """
         遍历所有QB种子，若tracker包含www.hdkyl.in，则限速上传
         """
-        # 这里假设self._qb已初始化为DownloaderHelper().get_services()返回的qbittorrent实例
+        if not self._enabled:
+            return
+            
+        # 检查配置是否有效
+        if not self._upload_limit or not str(self._upload_limit).isdigit():
+            logger.error(f"上传限速值无效: {self._upload_limit}")
+            return
+            
+        # 转换为KB/s的字节值 (1 KB = 1024 bytes)
+        upload_limit_bytes = int(self._upload_limit) * 1024
+        
+        # 遍历所有下载器实例及其种子
         if not self._qb:
-            self._qb = DownloaderHelper().get_services()
+            self._qb = self.downloader_helper.get_services()
         if not self._qb:
             logger.error("未获取到qbittorrent服务实例")
             return
-        for service in self._qb.values():
+            
+        tracker_matched_count = 0
+        for service_name, service in self._qb.items():
             downloader = service.instance
+            # 跳过非qbittorrent下载器
+            if not self.downloader_helper.is_downloader("qbittorrent", service=service):
+                logger.debug(f"下载器 {service_name} 不是qbittorrent，跳过")
+                continue
+                
             all_torrents, error = downloader.get_torrents()
             if error:
-                logger.error(f"获取QB种子失败: {error}")
+                logger.error(f"获取下载器 {service_name} 的种子失败: {error}")
                 continue
+                
             for torrent in all_torrents:
                 # 获取tracker
                 tracker = torrent.get("tracker")
                 if not tracker:
                     continue
+                    
+                # 检查tracker是否匹配规则
                 if "www.hdkyl.in" in tracker:
-                    # 设置上传限速，单位为字节/秒（如100KB/s=102400）
                     try:
-                        # 这里假设有set_torrent_speed_limit方法，部分环境可能为set_torrent_upload_limit
-                        if hasattr(downloader, 'set_torrent_speed_limit'):
-                            downloader.set_torrent_speed_limit(torrent.get("hash"), up_limit=102400)
-                        elif hasattr(downloader, 'set_torrent_upload_limit'):
-                            downloader.set_torrent_upload_limit(torrent.get("hash"), 102400)
-                        logger.info(f"已为种子{torrent.get('name')}({torrent.get('hash')})设置上传限速100KB/s")
+                        torrent_hash = torrent.get("hash")
+                        # 获取当前限速值
+                        current_limit = 0
+                        try:
+                            # 部分qBittorrent客户端API可能不同
+                            if hasattr(downloader, 'get_torrent_limits'):
+                                _, current_limit = downloader.get_torrent_limits(torrent_hash)
+                            elif hasattr(downloader, 'get_torrent_upload_limit'):
+                                current_limit = downloader.get_torrent_upload_limit(torrent_hash)
+                        except:
+                            pass
+                            
+                        # 只有当前限速与设定不同时才设置
+                        if current_limit != upload_limit_bytes:
+                            # 设置上传限速
+                            if hasattr(downloader, 'set_torrent_limits'):
+                                downloader.set_torrent_limits(torrent_hash, up_limit=upload_limit_bytes)
+                            elif hasattr(downloader, 'set_torrent_upload_limit'):
+                                downloader.set_torrent_upload_limit(torrent_hash, upload_limit_bytes)
+                                
+                            logger.info(f"已为种子 {torrent.get('name')} ({torrent_hash}) 设置上传限速 {self._upload_limit} KB/s")
+                            tracker_matched_count += 1
+                            
+                            # 发送通知
+                            if self._notify:
+                                self.post_message(
+                                    mtype=NotificationType.SiteMessage,
+                                    title=f"【QB智能限速】",
+                                    text=f"已为种子 {torrent.get('name')} 设置上传限速 {self._upload_limit} KB/s"
+                                )
                     except Exception as e:
-                        logger.error(f"设置种子{torrent.get('name')}上传限速失败: {e}")
+                        logger.error(f"设置种子 {torrent.get('name')} 上传限速失败: {str(e)}")
+        
+        if tracker_matched_count > 0:
+            logger.info(f"本次共设置了 {tracker_matched_count} 个种子的上传限速为 {self._upload_limit} KB/s")
