@@ -271,6 +271,18 @@
             "v2.0": "适配MoviePilot V2 版本"
         }
     },
+    "QbSpeedLimit": {
+        "name": "QB限速",
+        "description": "自定义规则限速，支持qbittorrent",
+        "labels": "下载管理,Qbittorrent",
+        "version": "0.1",
+        "icon": "Qbittorrent_A.png",
+        "author": "JavaZeroo",
+        "level": 1,
+        "history": {
+            "v1.0": "支持qbittorrent"
+        }
+    },
     "HistoryToV2": {
         "name": "历史记录迁移",
         "description": "将MoviePilot V1版本的整理历史记录迁移至V2版本。",
