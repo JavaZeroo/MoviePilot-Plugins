@@ -8,7 +8,8 @@
         "author": "JavaZeroo",
         "level": 1,
         "history": {
-            "v1.0": "支持qbittorrent"
+            "v0.2": "修复了qbittorrent的bug",
+            "v0.1": "支持qbittorrent"
         }
     }
 }
