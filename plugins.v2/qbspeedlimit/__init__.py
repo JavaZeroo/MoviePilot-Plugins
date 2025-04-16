@@ -88,7 +88,7 @@ class QbSpeedLimit(_PluginBase):
             self._notify = False
             self._onlyonce = False
             self._upload_limit = 100
-            self.cron = None
+            self._cron = None
 
         if self._onlyonce:
             self._onlyonce = False
