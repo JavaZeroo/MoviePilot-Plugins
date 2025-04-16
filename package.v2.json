@@ -3,13 +3,13 @@
         "name": "QB限速",
         "description": "自定义规则限速，支持qbittorrent",
         "labels": "下载管理,Qbittorrent",
-        "version": "0.1",
+        "version": "0.2",
         "icon": "Qbittorrent_A.png",
         "author": "JavaZeroo",
         "level": 1,
         "history": {
-            "v0.2": "修复了qbittorrent的bug",
-            "v0.1": "支持qbittorrent"
+            "v0.1": "支持qbittorrent",
+            "v0.2": "新增自定义限速规则功能，支持按Tracker匹配设置不同限速"
         }
     }
 }
