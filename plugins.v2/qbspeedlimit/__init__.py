@@ -23,6 +23,9 @@ import json
 import pytz
 import time
 
+# 导入表单配置
+from .form_config import get_form_config
+
 
 class SpeedLimitRule:
     def __init__(self, rule_id: str = None, name: str = "", tracker_pattern: str = "", 
@@ -287,191 +290,7 @@ class QbSpeedLimit(_PluginBase):
         """
         拼装插件配置页面，参考qbcommand插件风格
         """
-        rules_table = {
-            "component": "VRow",
-            "content": [
-                {
-                    "component": "VCol",
-                    "props": {"cols": 12},
-                    "content": [
-                        {
-                            "component": "VDataTable",
-                            "props": {
-                                "headers": [
-                                    {"title": "规则名称", "key": "name", "sortable": True},
-                                    {"title": "Tracker匹配", "key": "tracker_pattern"},
-                                    {"title": "上传限速", "key": "upload_limit"},
-                                    {"title": "下载限速", "key": "download_limit"},
-                                    {"title": "启用", "key": "enabled"},
-                                    {"title": "操作", "key": "actions", "sortable": False}
-                                ],
-                                "items": [rule.to_dict() for rule in self._rules],
-                                "item-key": "rule_id",
-                                "show-select": False,
-                                "disable-pagination": True,
-                                "hide-default-footer": True
-                            },
-                            "slots": {
-                                "item.actions": {
-                                    "component": "VBtn",
-                                    "props": {
-                                        "x-small": True,
-                                        "text": True,
-                                        "@click": "editRule(item)"
-                                    },
-                                    "content": "编辑"
-                                },
-                                "item.enabled": {
-                                    "component": "VSwitch",
-                                    "props": {
-                                        "model": "item.enabled",
-                                        "small": True
-                                    }
-                                }
-                            }
-                        }
-                    ]
-                }
-            ]
-        }
-
-        return [
-            {
-                "component": "VForm",
-                "content": [
-                    {
-                        "component": "VRow",
-                        "content": [
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "md": 6},
-                                "content": [
-                                    {
-                                        "component": "VSwitch",
-                                        "props": {
-                                            "model": "enabled",
-                                            "label": "启用插件",
-                                        },
-                                    }
-                                ],
-                            },
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "md": 6},
-                                "content": [
-                                    {
-                                        "component": "VSwitch",
-                                        "props": {
-                                            "model": "onlyonce",
-                                            "label": "立即运行一次"
-                                        },
-                                    }
-                                ],
-                            },
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "md": 6},
-                                "content": [
-                                    {
-                                        "component": "VSwitch",
-                                        "props": {
-                                            "model": "notify",
-                                            "label": "发送通知",
-                                        },
-                                    }
-                                ],
-                            },
-                        ],
-                    },
-                    {
-                        "component": "VRow",
-                        "content": [
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "md": 6},
-                                "content": [
-                                    { 
-                                        "component": "VTextField",
-                                        "props": {
-                                            "model": "cron",
-                                            "label": "监测周期",
-                                            "placeholder": "5位cron表达式，默认每5分钟"
-                                        }
-                                    }
-                                ],
-                            },
-                        ],
-                    },
-                    {
-                        "component": "VRow",
-                        "content": [
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12},
-                                "content": [
-                                    {
-                                        "component": "VAlert",
-                                        "props": {
-                                            "type": "info",
-                                            "variant": "tonal",
-                                            "text": "本插件会根据配置的规则定时遍历所有QB种子，若tracker匹配规则则自动限速。",
-                                        },
-                                    }
-                                ],
-                            }
-                        ],
-                    },
-                    {
-                        "component": "VDivider",
-                        "props": {"class": "my-4"}
-                    },
-                    {
-                        "component": "VRow",
-                        "content": [
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12},
-                                "content": [
-                                    {
-                                        "component": "VSubheader",
-                                        "props": {"class": "text-h6"},
-                                        "content": "限速规则配置"
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    # 这里添加规则表格
-                    rules_table,
-                    {
-                        "component": "VRow",
-                        "content": [
-                            {
-                                "component": "VCol",
-                                "props": {"cols": 12, "class": "d-flex justify-end"},
-                                "content": [
-                                    {
-                                        "component": "VBtn",
-                                        "props": {
-                                            "color": "primary",
-                                            "@click": "openAddRuleDialog"
-                                        },
-                                        "content": "添加规则"
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ],
-            }
-        ], {
-            "enabled": self._enabled,
-            "onlyonce": False,
-            "notify": self._notify,
-            "upload_limit": self._upload_limit,
-            "cron": self._cron,
-            "rules": [rule.to_dict() for rule in self._rules]
-        }
+        return get_form_config(self._enabled, self._notify, self._upload_limit, self._cron, self._rules)
 
     def get_page(self) -> List[dict]:
         """
@@ -508,7 +327,7 @@ class QbSpeedLimit(_PluginBase):
             "refresh": 10, // 自动刷新时间，单位秒
             "border": True, // 是否显示边框，默认True，为False时取消组件边框和边距，由插件自行控制
             "title": "组件标题", // 组件标题，如有将显示该标题，否则显示插件名称
-            "subtitle": "组件子标题", // 组件子标题，缺省时不展示子标题
+            "subtitle": "组件子标题，缺省时不展示子标题
         }
         3、页面配置使用Vuetify组件拼装，参考：https://vuetifyjs.com/
 
