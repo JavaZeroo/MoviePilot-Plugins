@@ -443,8 +443,8 @@ class QbSpeedLimit(_PluginBase):
                                 if isinstance(current_limits, dict) and torrent_hash in current_limits:
                                     current_limit = current_limits.get(torrent_hash)
                         except Exception as e:
-                            logger.debug(f"获取种子 {torrent.get('name')} 当前上传限速失败: {str(e)}")
-                        logger.debug(f"种子 {torrent.get('name')} ({torrent_hash}) 当前上传限速: {current_limit} B/s")
+                            logger.info(f"获取种子 {torrent.get('name')} 当前上传限速失败: {str(e)}")
+                        logger.info(f"种子 {torrent.get('name')} ({torrent_hash}) 当前上传限速: {current_limit} B/s")
                         # 只有当前限速与设定不同时才设置
                         if current_limit != upload_limit_bytes:
                             # qBittorrent API: torrents_set_upload_limit(torrent_hashes, limit)
