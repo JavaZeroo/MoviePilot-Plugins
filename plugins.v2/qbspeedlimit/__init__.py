@@ -94,7 +94,8 @@ class QbSpeedLimit(_PluginBase):
             self._onlyonce = False
             # 立即执行一次限速规则
             self.apply_speed_limit_by_tracker()
-            logger.info("QB智能限速插件已执行一次限速规则")            
+            logger.info("QB智能限速插件已执行一次限速规则")
+            self.__update_config()
         logger.info("QB智能限速插件已初始化")
 
     def get_state(self) -> bool:
@@ -307,6 +308,19 @@ class QbSpeedLimit(_PluginBase):
         停止插件
         """
         pass
+
+    def __update_config(self):
+        """
+        更新配置
+        """
+        self.update_config({
+            "enabled": self._enabled,
+            "onlyonce": self._onlyonce,
+            "notify": self._notify,
+            "upload_limit": self._upload_limit,
+            "cron": self._cron,
+        })
+
 
     def update_config(self, config: dict, plugin_id: str = None) -> bool:
         """
