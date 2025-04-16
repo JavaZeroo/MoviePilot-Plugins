@@ -120,7 +120,7 @@ class QbSpeedLimit(_PluginBase):
     _scheduler = None
     _exclude_dirs = ""
     _rules = []
-    _cron = "*/5 * * * *"  # 默认5分钟执行一次
+    _cron = ""  # 默认为空，等待用户设置
 
     def init_plugin(self, config: dict = None):
         """
@@ -136,10 +136,10 @@ class QbSpeedLimit(_PluginBase):
         # 读取配置
         if config:
             self._enabled = config.get("enabled", False)
-            self._onlyonce = config.get("onlyonce")
+            self._onlyonce = config.get("onlyonce", False)
             self._notify = config.get("notify", False)
             self._upload_limit = config.get("upload_limit", 100)
-            self._cron = config.get("cron", "*/5 * * * *")
+            self._cron = config.get("cron", "")
             
             # 加载规则
             rules_data = config.get("rules", [])
@@ -152,7 +152,7 @@ class QbSpeedLimit(_PluginBase):
                     tracker_pattern="www.hdkyl.in",
                     upload_limit=100,
                     enable_upload_limit=True,
-                    enabled=True
+                    enabled=False
                 )
                 self._rules.append(default_rule)
         else:
@@ -160,14 +160,14 @@ class QbSpeedLimit(_PluginBase):
             self._notify = False
             self._onlyonce = False
             self._upload_limit = 100
-            self._cron = "*/5 * * * *"
+            self._cron = ""
             # 创建一条默认规则
             default_rule = SpeedLimitRule(
                 name="默认规则",
                 tracker_pattern="www.hdkyl.in",
                 upload_limit=100,
                 enable_upload_limit=True,
-                enabled=True
+                enabled=False
             )
             self._rules = [default_rule]
 
@@ -485,7 +485,7 @@ class QbSpeedLimit(_PluginBase):
         注册插件公共服务，定时执行限速规则
         """
         # 使用配置的cron表达式
-        cron_expression = self._cron if self._cron else "*/5 * * * *"
+        cron_expression = self._cron if self._cron else None
         return [
             {
                 "id": "QbSpeedLimitByTracker",
