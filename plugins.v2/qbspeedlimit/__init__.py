@@ -424,13 +424,13 @@ class QbSpeedLimit(_PluginBase):
             downloader = service.instance
             # 跳过非qbittorrent下载器
             if not self.downloader_helper.is_downloader("qbittorrent", service=service):
-                logger.debug(f"下载器 {service_name} 不是qbittorrent，跳过")
+                logger.info(f"下载器 {service_name} 不是qbittorrent，跳过")
                 continue
                 
             all_torrents, error = downloader.get_torrents()
             # 计时
             start_time = time.time()
-            logger.debug(f"下载器 {service_name} 的种子数量: {len(all_torrents)}")
+            logger.info(f"下载器 {service_name} 的种子数量: {len(all_torrents)}")
             tracker_matched_count = 0
             if error:
                 logger.error(f"获取下载器 {service_name} 的种子失败: {error}")
@@ -480,6 +480,6 @@ class QbSpeedLimit(_PluginBase):
                         logger.error(f"处理种子 {torrent.get('name')} 时出错: {str(e)}")
             stop_time = time.time()
             elapsed_time = stop_time - start_time
-            logger.debug(f"限速规则执行完成，耗时 {elapsed_time:.2f} 秒")
+            logger.info(f"限速规则执行完成，耗时 {elapsed_time:.2f} 秒")
         if tracker_matched_count > 0:
             logger.info(f"本次共设置了 {tracker_matched_count} 个种子的上传限速为 {self._upload_limit} KB/s")
