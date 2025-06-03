@@ -173,26 +173,26 @@ def get_form_config(rules):
                     ]
                 },
                 # 添加规则表格
-                rules_table,
-                {
-                    "component": "VRow",
-                    "content": [
-                        {
-                            "component": "VCol",
-                            "props": {"cols": 12, "class": "d-flex justify-end"},
-                            "content": [
-                                {
-                                    "component": "VBtn",
-                                    "props": {
-                                        "color": "primary",
-                                        "@click": "openAddRuleDialog"
-                                    },
-                                    "content": "添加规则"
-                                }
-                            ]
-                        }
-                    ]
-                }
+                # rules_table,
+                # {
+                #     "component": "VRow",
+                #     "content": [
+                #         {
+                #             "component": "VCol",
+                #             "props": {"cols": 12, "class": "d-flex justify-end"},
+                #             "content": [
+                #                 {
+                #                     "component": "VBtn",
+                #                     "props": {
+                #                         "color": "primary",
+                #                         "@click": "openAddRuleDialog"
+                #                     },
+                #                     "content": "添加规则"
+                #                 }
+                #             ]
+                #         }
+                #     ]
+                # }
             ],
         }
     ]
